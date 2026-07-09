@@ -70,6 +70,7 @@ def config():
 
     # below params varies with the environment
     root_dataset = os.path.join(__root_dir__, "examples/dataset")
+    split_dataset = None
     log_dir = "logs/"
     batch_size = 32  # desired batch size; for gradient accumulation
     per_gpu_batchsize = 8  # you should define this manually with per_gpu_batch_size

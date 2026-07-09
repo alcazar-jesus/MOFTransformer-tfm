@@ -13,6 +13,7 @@ class Datamodule(LightningDataModule):
         super().__init__()
 
         self.data_dir = _config["root_dataset"]
+        self.split_dir = _config.get("split_dataset", None)
 
         self.num_workers = _config["num_workers"]
         self.batch_size = _config["per_gpu_batchsize"]
@@ -38,6 +39,7 @@ class Datamodule(LightningDataModule):
             downstream=self.downstream,
             nbr_fea_len=self.nbr_fea_len,
             tasks=self.tasks,
+            split_dir=self.split_dir,
         )
 
     def set_val_dataset(self):
@@ -48,6 +50,7 @@ class Datamodule(LightningDataModule):
             downstream=self.downstream,
             nbr_fea_len=self.nbr_fea_len,
             tasks=self.tasks,
+            split_dir=self.split_dir,
         )
 
     def set_test_dataset(self):
@@ -58,6 +61,7 @@ class Datamodule(LightningDataModule):
             downstream=self.downstream,
             nbr_fea_len=self.nbr_fea_len,
             tasks=self.tasks,
+            split_dir=self.split_dir,
         )
 
     def setup(self, stage: Optional[str] = None):
@@ -79,6 +83,9 @@ class Datamodule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             collate_fn=self.collate,
+            pin_memory=True,
+            persistent_workers=(self.num_workers > 0),
+            shuffle=True, # Vital para el entrenamiento
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -87,6 +94,8 @@ class Datamodule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             collate_fn=self.collate,
+            pin_memory=True,
+            persistent_workers=(self.num_workers > 0),
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -95,4 +104,6 @@ class Datamodule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             collate_fn=self.collate,
+            pin_memory=True,
+            persistent_workers=(self.num_workers > 0),
         )

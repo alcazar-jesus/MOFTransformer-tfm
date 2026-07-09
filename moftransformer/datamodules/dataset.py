@@ -19,6 +19,7 @@ class Dataset(torch.utils.data.Dataset):
         draw_false_grid=True,
         downstream="",
         tasks=[],
+        split_dir: str = None,
     ):
         """
         Dataset for pretrained MOF.
@@ -34,10 +35,11 @@ class Dataset(torch.utils.data.Dataset):
         self.split = split
 
         assert split in {"train", "test", "val"}
+        self.split_dir = split_dir if split_dir is not None else data_dir
         if downstream:
-            path_file = os.path.join(data_dir, f"{split}_{downstream}.json")
+            path_file = os.path.join(self.split_dir, f"{split}_{downstream}.json")
         else:
-            path_file = os.path.join(data_dir, f"{split}.json")
+            path_file = os.path.join(self.split_dir, f"{split}.json")
         print(f"read {path_file}...")
 
         if not os.path.isfile(path_file):
@@ -54,11 +56,11 @@ class Dataset(torch.utils.data.Dataset):
 
         for task in tasks:
             if task in ["mtp", "vfp", "moc", "bbc"]:
-                path_file = os.path.join(data_dir, f"{split}_{task}.json")
+                path_file = os.path.join(self.split_dir, f"{split}_{task}.json")
                 print(f"read {path_file}...")
                 assert os.path.isfile(
                     path_file
-                ), f"{path_file} doesn't exist in {data_dir}"
+                ), f"{path_file} doesn't exist in {self.split_dir}"
 
                 dict_task = json.load(open(path_file, "r"))
                 cif_ids, t = zip(*dict_task.items())
@@ -100,8 +102,8 @@ class Dataset(torch.utils.data.Dataset):
         return v.item() / (60 * 60 * 60)  # normalized volume
 
     def get_raw_grid_data(self, cif_id):
-        file_grid = os.path.join(self.data_dir, self.split, f"{cif_id}.grid")
-        file_griddata = os.path.join(self.data_dir, self.split, f"{cif_id}.griddata16")
+        file_grid = os.path.join(self.data_dir, "total", f"{cif_id}.grid")
+        file_griddata = os.path.join(self.data_dir, "total", f"{cif_id}.griddata16")
 
         # get grid
         with open(file_grid, "r") as f:
@@ -155,7 +157,7 @@ class Dataset(torch.utils.data.Dataset):
         return np.exp(-((distances[..., np.newaxis] - _filter) ** 2) / var**2).float()
 
     def get_graph(self, cif_id):
-        file_graph = os.path.join(self.data_dir, self.split, f"{cif_id}.graphdata")
+        file_graph = os.path.join(self.data_dir, "total", f"{cif_id}.graphdata")
 
         graphdata = pickle.load(open(file_graph, "rb"))
         # graphdata = ["cif_id", "atom_num", "nbr_idx", "nbr_dist", "uni_idx", "uni_count"]
