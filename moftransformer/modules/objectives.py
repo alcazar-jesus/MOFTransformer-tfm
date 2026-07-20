@@ -20,14 +20,21 @@ def compute_regression(pl_module, batch, normalizer):
     infer = pl_module.infer(batch)
 
     logits = pl_module.regression_head(infer["cls_feats"])  # [B, n_targets]
-    labels = torch.FloatTensor(batch["target"]).to(
+    target_key = "target_reg" if "target_reg" in batch else "target"
+    raw_labels = torch.FloatTensor(batch[target_key]).to(
         logits.device
     )  # [B] or [B, n_targets]
 
     # normalize encode if config["mean"] and config["std], else pass
     logits = logits.squeeze(-1)
-    labels = normalizer.encode(labels)
-    loss = F.mse_loss(logits, labels)
+    labels = normalizer.encode(raw_labels)
+    
+    mask = (raw_labels != -1000.0)
+    
+    if mask.sum() > 0:
+        loss = F.mse_loss(logits[mask], labels[mask])
+    else:
+        loss = torch.tensor(0.0, device=logits.device, requires_grad=True)
 
     labels = labels.to(torch.float32)
     logits = logits.to(torch.float32)
@@ -42,14 +49,19 @@ def compute_regression(pl_module, batch, normalizer):
 
     # call update() loss and acc
     phase = "train" if pl_module.training else "val"
-    loss = getattr(pl_module, f"{phase}_regression_loss")(ret["regression_loss"])
-    mae = getattr(pl_module, f"{phase}_regression_mae")(
-        mean_absolute_error(ret["regression_logits"], ret["regression_labels"])
-    )
+    loss_val = getattr(pl_module, f"{phase}_regression_loss")(ret["regression_loss"])
+    
+    if mask.sum() > 0:
+        mae_val = getattr(pl_module, f"{phase}_regression_mae")(
+            mean_absolute_error(ret["regression_logits"][mask], ret["regression_labels"][mask])
+        )
+    else:
+        mae_val = 0.0
 
     if pl_module.write_log:
-        pl_module.log(f"regression/{phase}/loss", loss, sync_dist=True)
-        pl_module.log(f"regression/{phase}/mae", mae, sync_dist=True)
+        pl_module.log(f"regression/{phase}/loss", loss_val, sync_dist=True)
+        if mask.sum() > 0:
+            pl_module.log(f"regression/{phase}/mae", mae_val, sync_dist=True)
 
     return ret
 
@@ -60,13 +72,20 @@ def compute_classification(pl_module, batch):
     logits, binary = pl_module.classification_head(
         infer["cls_feats"]
     )  # [B, output_dim]
-    labels = torch.LongTensor(batch["target"]).to(logits.device)  # [B]
+    target_key = "target_cls" if "target_cls" in batch else "target"
+    labels = torch.LongTensor(batch[target_key]).to(logits.device)  # [B]
     assert len(labels.shape) == 1
+    
+    mask = (labels != -1)
+    
     if binary:
         logits = logits.squeeze(dim=-1)
-        loss = F.binary_cross_entropy_with_logits(input=logits, target=labels.float())
+        if mask.sum() > 0:
+            loss = F.binary_cross_entropy_with_logits(input=logits[mask], target=labels[mask].float())
+        else:
+            loss = torch.tensor(0.0, device=logits.device, requires_grad=True)
     else:
-        loss = F.cross_entropy(logits, labels)
+        loss = F.cross_entropy(logits, labels, ignore_index=-1)
 
     ret = {
         "cif_id": infer["cif_id"],
@@ -78,16 +97,21 @@ def compute_classification(pl_module, batch):
 
     # call update() loss and acc
     phase = "train" if pl_module.training else "val"
-    loss = getattr(pl_module, f"{phase}_classification_loss")(
+    loss_val = getattr(pl_module, f"{phase}_classification_loss")(
         ret["classification_loss"]
     )
-    acc = getattr(pl_module, f"{phase}_classification_accuracy")(
-        ret["classification_logits"], ret["classification_labels"]
-    )
+    
+    if mask.sum() > 0:
+        acc_val = getattr(pl_module, f"{phase}_classification_accuracy")(
+            ret["classification_logits"][mask], ret["classification_labels"][mask]
+        )
+    else:
+        acc_val = 0.0
 
     if pl_module.write_log:
-        pl_module.log(f"classification/{phase}/loss", loss, sync_dist=True)
-        pl_module.log(f"classification/{phase}/accuracy", acc, sync_dist=True)
+        pl_module.log(f"classification/{phase}/loss", loss_val, sync_dist=True)
+        if mask.sum() > 0:
+            pl_module.log(f"classification/{phase}/accuracy", acc_val, sync_dist=True)
 
     return ret
 

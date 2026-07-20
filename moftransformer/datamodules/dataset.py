@@ -192,12 +192,21 @@ class Dataset(torch.utils.data.Dataset):
         cif_id = self.cif_ids[index]
         target = self.targets[index]
 
-        ret.update(
-            {
-                "cif_id": cif_id,
-                "target": target,
-            }
-        )
+        if isinstance(target, (list, tuple)) and len(target) == 2:
+            ret.update(
+                {
+                    "cif_id": cif_id,
+                    "target_reg": target[0],
+                    "target_cls": target[1],
+                }
+            )
+        else:
+            ret.update(
+                {
+                    "cif_id": cif_id,
+                    "target": target,
+                }
+            )
         ret.update(self.get_grid_data(cif_id, draw_false_grid=self.draw_false_grid))
         ret.update(self.get_graph(cif_id))
 
