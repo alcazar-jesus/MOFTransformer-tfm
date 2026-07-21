@@ -81,7 +81,12 @@ def compute_classification(pl_module, batch):
     if binary:
         logits = logits.squeeze(dim=-1)
         if mask.sum() > 0:
-            loss = F.binary_cross_entropy_with_logits(input=logits[mask], target=labels[mask].float())
+            pos_weight = getattr(pl_module.hparams, "classification_pos_weight", None)
+            if pos_weight is not None:
+                pos_weight_tensor = torch.tensor([pos_weight], device=logits.device, dtype=torch.float32)
+                loss = F.binary_cross_entropy_with_logits(input=logits[mask], target=labels[mask].float(), pos_weight=pos_weight_tensor)
+            else:
+                loss = F.binary_cross_entropy_with_logits(input=logits[mask], target=labels[mask].float())
         else:
             loss = torch.tensor(0.0, device=logits.device, requires_grad=True)
     else:
