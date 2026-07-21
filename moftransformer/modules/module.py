@@ -277,7 +277,15 @@ class Module(LightningModule):
 
     def training_step(self, batch, batch_idx):
         output = self(batch)
-        total_loss = sum([v for k, v in output.items() if "loss" in k])
+        total_loss = 0.0
+        loss_weights = getattr(self.hparams, "loss_names", {})
+        
+        for k, v in output.items():
+            if "loss" in k:
+                base_name = k.replace("_loss", "")
+                weight = loss_weights.get(base_name, 1.0)
+                total_loss += weight * v
+                
         return total_loss
 
     def on_train_epoch_end(self):

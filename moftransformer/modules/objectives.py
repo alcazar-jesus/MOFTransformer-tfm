@@ -85,7 +85,12 @@ def compute_classification(pl_module, batch):
         else:
             loss = torch.tensor(0.0, device=logits.device, requires_grad=True)
     else:
-        loss = F.cross_entropy(logits, labels, ignore_index=-1)
+        class_weights = getattr(pl_module.hparams, "classification_class_weights", None)
+        if class_weights is not None:
+            class_weights = torch.tensor(class_weights, device=logits.device, dtype=torch.float32)
+            loss = F.cross_entropy(logits, labels, ignore_index=-1, weight=class_weights)
+        else:
+            loss = F.cross_entropy(logits, labels, ignore_index=-1)
 
     ret = {
         "cif_id": infer["cif_id"],
