@@ -278,7 +278,7 @@ class Module(LightningModule):
     def training_step(self, batch, batch_idx):
         output = self(batch)
         total_loss = 0.0
-        loss_weights = getattr(self.hparams, "loss_names", {})
+        loss_weights = self.hparams.config.get("loss_names", {})
         
         for k, v in output.items():
             if "loss" in k:
