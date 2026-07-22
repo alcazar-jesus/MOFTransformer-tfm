@@ -103,6 +103,10 @@ class Module(LightningModule):
             n_classes = config["n_classes"]
             self.classification_head = heads.ClassificationHead(hid_dim, n_classes)
             self.classification_head.apply(objectives.init_weights)
+            
+            if config.get("hierarchical_multitask", False) and n_classes == 2:
+                self.hierarchical_proj = nn.Linear(1, hid_dim)
+                self.hierarchical_proj.apply(objectives.init_weights)
 
         module_utils.set_metrics(self)
         self.current_tasks = list()

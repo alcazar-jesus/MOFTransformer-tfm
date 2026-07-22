@@ -18,8 +18,14 @@ def init_weights(module):
 
 def compute_regression(pl_module, batch, normalizer):
     infer = pl_module.infer(batch)
+    
+    cls_feats = infer["cls_feats"]
+    if hasattr(pl_module, "hierarchical_proj") and hasattr(pl_module, "classification_head"):
+        cls_logits, _ = pl_module.classification_head(cls_feats) # [B, 1]
+        proj = pl_module.hierarchical_proj(cls_logits) # [B, hid_dim]
+        cls_feats = cls_feats + proj
 
-    logits = pl_module.regression_head(infer["cls_feats"])  # [B, n_targets]
+    logits = pl_module.regression_head(cls_feats)  # [B, n_targets]
     target_key = "target_reg" if "target_reg" in batch else "target"
     raw_labels = torch.FloatTensor(batch[target_key]).to(
         logits.device
