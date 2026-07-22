@@ -106,7 +106,8 @@ class Module(LightningModule):
             
             if config.get("hierarchical_multitask", False) and n_classes == 2:
                 self.hierarchical_proj = nn.Linear(1, hid_dim)
-                self.hierarchical_proj.apply(objectives.init_weights)
+                torch.nn.init.zeros_(self.hierarchical_proj.weight)
+                torch.nn.init.zeros_(self.hierarchical_proj.bias)
 
         module_utils.set_metrics(self)
         self.current_tasks = list()
